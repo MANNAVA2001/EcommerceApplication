@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ecommerce_backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=5001
+      - DB_HOST=${azuresql_URL}
+      - DB_NAME=${azuresql_databasename}
+      - DB_USER=${azuresql_server}
+      - DB_PASSWORD=${azuresql_password}
+      - DB_PORT=1433
+      - DATABASE_URL=mssql://${azuresql_server}:${azuresql_password}@${azuresql_URL}:1433/${azuresql_databasename}
+      - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      - MONGODB_URI=mongodb://mongodb:27017/ecommerce_recommendations
+      - FRONTEND_URL=http://localhost:3000
+    ports:
+      - "5001:5001"
+    depends_on:
+      - redis
+      - elasticsearch
+      - mongodb
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    networks:
+      - ecommerce_network
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce_redis
+    restart: unless-stopped
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ecommerce_network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: ecommerce_elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9201:9200"
+      - "9301:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - ecommerce_network
+
+  mongodb:
+    image: mongo:7
+    container_name: ecommerce_mongodb
+    restart: unless-stopped
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - ecommerce_network
+
+volumes:
+  redis_data:
+  elasticsearch_data:
+  mongodb_data:
+
+networks:
+  ecommerce_network:
+    driver: bridge
